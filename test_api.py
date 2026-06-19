@@ -9,9 +9,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-import api
+import main
 
-client = TestClient(api.app)
+client = TestClient(main.app)
 
 SAMPLE_WORKFLOW = "I copy leads from emails into a CRM by hand every day."
 FAKE_PLAN = "## Workflow Summary\nYou copy leads manually.\n## Recommended First Automation\n..."
@@ -30,7 +30,7 @@ def test_health_ok():
 # /diagnose
 # ---------------------------------------------------------------------------
 def test_diagnose_success():
-    with patch.object(api, "diagnose", return_value=FAKE_PLAN) as mock_diag:
+    with patch.object(main, "diagnose", return_value=FAKE_PLAN) as mock_diag:
         resp = client.post("/diagnose", json={"workflow_description": SAMPLE_WORKFLOW})
     assert resp.status_code == 200
     assert resp.json() == {"plan": FAKE_PLAN}
@@ -49,14 +49,14 @@ def test_diagnose_missing_field_is_422():
 
 
 def test_diagnose_value_error_is_422():
-    with patch.object(api, "diagnose", side_effect=ValueError("bad input")):
+    with patch.object(main, "diagnose", side_effect=ValueError("bad input")):
         resp = client.post("/diagnose", json={"workflow_description": SAMPLE_WORKFLOW})
     assert resp.status_code == 422
     assert resp.json()["detail"] == "bad input"
 
 
 def test_diagnose_llm_failure_is_502():
-    with patch.object(api, "diagnose", side_effect=RuntimeError("groq down")):
+    with patch.object(main, "diagnose", side_effect=RuntimeError("groq down")):
         resp = client.post("/diagnose", json={"workflow_description": SAMPLE_WORKFLOW})
     assert resp.status_code == 502
     assert "groq down" in resp.json()["detail"]
@@ -67,7 +67,7 @@ def test_diagnose_llm_failure_is_502():
 # ---------------------------------------------------------------------------
 def test_evaluate_markdown_default():
     report = "**Overall Score:** 86/100"
-    with patch.object(api, "evaluate", return_value=report) as mock_eval:
+    with patch.object(main, "evaluate", return_value=report) as mock_eval:
         resp = client.post(
             "/evaluate",
             json={"workflow_description": SAMPLE_WORKFLOW, "plan": FAKE_PLAN},
@@ -79,7 +79,7 @@ def test_evaluate_markdown_default():
 
 def test_evaluate_structured_returns_dict():
     scores = {"overall_score": 86, "breakdown": []}
-    with patch.object(api, "evaluate", return_value=scores) as mock_eval:
+    with patch.object(main, "evaluate", return_value=scores) as mock_eval:
         resp = client.post(
             "/evaluate",
             json={
@@ -99,7 +99,7 @@ def test_evaluate_missing_plan_is_422():
 
 
 def test_evaluate_llm_failure_is_502():
-    with patch.object(api, "evaluate", side_effect=RuntimeError("groq down")):
+    with patch.object(main, "evaluate", side_effect=RuntimeError("groq down")):
         resp = client.post(
             "/evaluate",
             json={"workflow_description": SAMPLE_WORKFLOW, "plan": FAKE_PLAN},
